@@ -288,6 +288,27 @@ def save_results(results, ablation_results, cross_results, output_dir="results")
     print(f"    - tables/: Statistical results")
 
 
+def load_phenotype_labels():
+    """Load phenotype labels from Repository 1 output."""
+    import os
+    from pathlib import Path
+
+    label_file = Path(__file__).parent.parent / "data" / "phenotype_labels.csv"
+
+    if not label_file.exists():
+        print(f"\n  Warning: Phenotype labels file not found at {label_file}")
+        print("  Please run Repository 1 (HemoDynamics) first to generate labels.")
+        return {}
+
+    labels_df = pd.read_csv(label_file)
+    labels = {}
+    for _, row in labels_df.iterrows():
+        labels[row["session_id"]] = int(row["phenotype_id"])
+
+    print(f"  Loaded {len(labels)} phenotype labels")
+    return labels
+
+
 def main():
     """Main pipeline."""
     print("=" * 80)
@@ -297,24 +318,32 @@ def main():
     # Load and parse
     all_sessions = load_and_parse_data()
 
-    # Note: This pipeline requires phenotype labels from Repository 1
-    # In practice, you would load these from a file or database
-    phenotype_labels = {}  # Placeholder: {session_id: phenotype_id}
+    # Load phenotype labels from Repository 1
+    phenotype_labels = load_phenotype_labels()
 
-    print(
-        "\nNote: This pipeline requires phenotype labels from the phenotype discovery repository."
-    )
-    print("Please ensure phenotype labels are available before running this pipeline.")
+    if not phenotype_labels:
+        print("\n  ERROR: No phenotype labels available. Exiting.")
+        print("  Please run Repository 1 (HemoDynamics) first.")
+        sys.exit(1)
 
-    # Placeholder for demonstration
-    # results = train_center_models(all_sessions, phenotype_labels)
-    # ablation_results = run_ablation_studies(all_sessions, phenotype_labels)
-    # cross_results = run_cross_center_evaluation(results, all_sessions, phenotype_labels)
-    # save_results(results, ablation_results, cross_results)
+    # Train center-specific models
+    results = train_center_models(all_sessions, phenotype_labels)
+
+    # Run ablation studies
+    ablation_results = run_ablation_studies(all_sessions, phenotype_labels)
+
+    # Cross-center validation
+    cross_results = run_cross_center_evaluation(results, all_sessions, phenotype_labels)
+
+    # Save all results
+    save_results(results, ablation_results, cross_results)
 
     print("\n" + "=" * 80)
-    print("Pipeline structure ready. Add phenotype labels to run full pipeline.")
+    print("Pipeline Complete!")
     print("=" * 80)
+    print(f"\nResults saved to: results/")
+    print(f"  - figures/: Visualization plots")
+    print(f"  - tables/: Statistical results")
 
 
 if __name__ == "__main__":

@@ -122,7 +122,7 @@ def parse_fuding_features(row, pre_post_df):
             "session_id": f"{patient_name}_{dialysis_date_raw}",
             "dialysis_date": dialysis_date_raw,
             "age": row.get("AGE", np.nan),
-            "sex": 1,
+            "sex": 1 if str(row.get("SEX", row.get("性别", ""))).strip() == "男" else 0,
             "pre_sbp": pre_sbp,
             "pre_dbp": pre_dbp,
             "prescribed_ufr": ufr_fields["prescribed_ufr"],
@@ -143,6 +143,25 @@ def extract_features(all_sessions, phenotype_labels=None):
     feature_names = FEATURE_NAMES_BASE.copy()
     X = []
     y = []
+
+    # Data leakage audit: ensure no intradialytic features are used
+    allowed_features = {
+        "age",
+        "sex",
+        "pre_sbp",
+        "pre_dbp",
+        "prescribed_ufr",
+        "idwg",
+        "dialysis_duration",
+        "dry_weight",
+        "pre_weight",
+    }
+    for f in feature_names:
+        if f not in allowed_features:
+            raise ValueError(
+                f"Feature '{f}' is not a pre-dialysis feature. "
+                f"Using intradialytic features would cause data leakage!"
+            )
 
     for s in all_sessions:
         row = [s.get(f, np.nan) for f in feature_names]

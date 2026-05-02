@@ -5,6 +5,7 @@ import lightgbm as lgb
 import shap
 from sklearn.model_selection import train_test_split
 from sklearn.impute import KNNImputer
+from sklearn.preprocessing import RobustScaler
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -30,7 +31,7 @@ from config.settings import (
 )
 
 
-def train_lightgbm(X, y, center_name="Center"):
+def train_lightgbm(X, y, center_name="Center", use_early_stopping=True):
     """
     Train LightGBM classifier with class weight balancing.
 
@@ -42,6 +43,8 @@ def train_lightgbm(X, y, center_name="Center"):
         Labels.
     center_name : str
         Name of the center for logging.
+    use_early_stopping : bool
+        Whether to use early stopping to prevent overfitting.
 
     Returns
     -------
@@ -56,19 +59,25 @@ def train_lightgbm(X, y, center_name="Center"):
     print(f"  {center_name} Model Training")
     print(f"{'='*60}")
 
-    # KNN imputation for missing values
-    imputer = KNNImputer(n_neighbors=5)
-    X_imputed = imputer.fit_transform(X)
-
-    # Train/test split with stratification
+    # Train/test split FIRST to prevent data leakage
     X_train, X_test, y_train, y_test = train_test_split(
-        X_imputed, y, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=y
+        X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=y
     )
+
+    # KNN imputation AFTER split to prevent data leakage
+    imputer = KNNImputer(n_neighbors=5)
+    X_train_imputed = imputer.fit_transform(X_train)
+    X_test_imputed = imputer.transform(X_test)
+
+    # Feature scaling for cross-center consistency
+    scaler = RobustScaler()
+    X_train_scaled = scaler.fit_transform(X_train_imputed)
+    X_test_scaled = scaler.transform(X_test_imputed)
 
     print(f"  Train size: {len(X_train)}, Test size: {len(X_test)}")
     print(f"  Class distribution: {np.bincount(y_train)}")
 
-    # Train LightGBM
+    # Train LightGBM with early stopping
     model = lgb.LGBMClassifier(
         n_estimators=N_ESTIMATORS,
         learning_rate=LEARNING_RATE,
@@ -78,11 +87,19 @@ def train_lightgbm(X, y, center_name="Center"):
         verbose=-1,
         class_weight="balanced",
     )
-    model.fit(X_train, y_train, eval_set=[(X_test, y_test)])
+
+    if use_early_stopping:
+        callbacks = [lgb.early_stopping(stopping_rounds=50)]
+    else:
+        callbacks = []
+
+    model.fit(
+        X_train_scaled, y_train, eval_set=[(X_test_scaled, y_test)], callbacks=callbacks
+    )
 
     # Evaluate
-    y_pred = model.predict(X_test)
-    y_prob = model.predict_proba(X_test)
+    y_pred = model.predict(X_test_scaled)
+    y_prob = model.predict_proba(X_test_scaled)
 
     accuracy = accuracy_score(y_test, y_pred)
     print(f"\n  Test Accuracy: {accuracy:.4f}")
