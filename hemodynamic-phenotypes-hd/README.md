@@ -1,82 +1,101 @@
-# HD Phenotype Landscape
+# HemoDynamics
 
-**Unsupervised Discovery of Hemodynamic Phenotypes in Hemodialysis: A Dual-Center Study of 226,800 Sessions**
+**Unsupervised Discovery of Hemodynamic Phenotypes in Hemodialysis**
+
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Overview
 
-This repository contains the code and analysis for discovering hemodynamic phenotypes in hemodialysis patients using Soft-DTW K-Means clustering, and analyzing cross-center differences between two dialysis centers.
+HemoDynamics discovers distinct hemodynamic response patterns during hemodialysis sessions using time-series clustering. By analyzing 240-minute systolic blood pressure trajectories, the system identifies clinically meaningful phenotypes that correlate with intradialytic hypotension (IDH) risk.
 
-## Research Questions
+**Key capabilities:**
+- **Phenotype Discovery**: Soft-DTW K-Means clustering identifies 4 distinct hemodynamic trajectory patterns
+- **Clinical Validation**: Phenotypes show significant correlation with IDH incidence rates
+- **Cross-Center Analysis**: Statistical comparison of phenotype distributions across dialysis centers
+- **Large-Scale Processing**: Two-stage clustering handles 200,000+ dialysis sessions efficiently
 
-1. Can we identify distinct hemodynamic trajectory phenotypes from 240-minute dialysis sessions?
-2. Do the phenotype distributions differ significantly between two dialysis centers?
-3. What clinical factors (UFR, IDWG) explain the cross-center phenotype distribution differences?
+## Quick Start
 
-## Key Findings
+```bash
+# Install dependencies
+pip install -r requirements.txt
 
-- **4 phenotypes identified**: P0 (Severe Drop), P1 (Moderate Drop), P2 (Stable), P3 (Mild Drop)
-- **Cross-center difference**: Fuding has significantly higher P0 prevalence (22.9%) vs Shenyi (18.9%)
-- **Root cause**: Higher prescribed UFR in Fuding center drives P0 phenotype prevalence
-- **Clinical validation**: P0 phenotype has highest IDH rate, confirming clinical relevance
+# Run the full pipeline
+python src/main.py
+```
 
-## Repository Structure
+Results will be saved to `results/figures/` and `results/tables/`.
+
+## Project Structure
 
 ```
+hemodynamic-phenotypes-hd/
+├── config/
+│   └── settings.py          # Configuration parameters
 ├── src/
-│   ├── Project_Landscape_V2.py      # Main analysis pipeline
-│   ├── analyze_p0_prevalence.py     # P0 prevalence analysis
-│   └── check_p0_prevalence.py       # P0 prevalence checker
-├── figures/
-│   ├── Figure1_Phenotype_Landscape_Full.png
-│   ├── Figure2_Root_Cause_Analysis.png
-│   ├── phase2_center_landscape.png
-│   └── phenotype_landscape_4panel.png
-├── data/
-│   └── (processed data files)
-├── models/
-│   └── (clustering centroids)
-└── docs/
-    └── Project_Landscape_Report_V2.md
+│   ├── main.py              # Main pipeline entry point
+│   ├── data/
+│   │   └── loader.py        # Data loading and preprocessing
+│   ├── clustering/
+│   │   └── soft_dtw_kmeans.py  # Soft-DTW K-Means algorithm
+│   ├── analysis/
+│   │   └── phenotype_stats.py  # Statistical analysis
+│   ├── visualization/
+│   │   └── plotter.py       # Publication-quality figures
+│   └── experiments/
+│       └── ablation.py      # Ablation studies
+├── results/
+│   ├── figures/             # Generated visualizations
+│   └── tables/              # Statistical results (CSV)
+├── requirements.txt
+└── README.md
 ```
 
 ## Methods
 
 ### Soft-DTW K-Means Clustering
 
-- **Input**: ΔSBP trajectories (240 minutes, 12 time points)
-- **Distance metric**: Dynamic Time Warping (DTW)
-- **K**: 4 phenotypes
-- **Two-stage approach**: 
-  1. Cluster 50,000 stratified samples with 50 iterations
-  2. Assign remaining 176,800 samples via 1-NN (FastDTW)
+The system uses a two-stage clustering approach:
 
-### Cross-Center Statistical Testing
+1. **Stage 1**: Soft-DTW K-Means on 50,000 stratified samples (50 iterations)
+2. **Stage 2**: 1-NN assignment of remaining samples to centroids
 
-- **Chi-square test**: Phenotype distribution differences
-- **T-test**: UFR and IDWG differences between centers
-- **Effect size**: Cohen's d for continuous variables
+**Key design choices:**
+- **Input**: ΔSBP trajectories (relative to pre-dialysis baseline)
+- **Distance**: Dynamic Time Warping (DTW) via `fastdtw`
+- **Parallelization**: Multi-core DTW distance computation via `joblib`
 
-## Requirements
+### Clinical IDH Definition
 
-- Python 3.8+
-- numpy, pandas, scipy
-- scikit-learn
-- fastdtw
-- matplotlib, seaborn
+Intradialytic hypotension is defined using the clinical standard:
+- **Threshold**: Minimum intradialytic SBP < 90 mmHg
+- **Excludes**: Relative drop definitions to avoid circular reasoning
 
-## Usage
+## Output
 
-```bash
-cd src
-python Project_Landscape_V2.py
-```
+### Visualizations
+- **Mean Trajectories**: Average SBP trajectory per phenotype with confidence bands
+- **Center Distribution**: Phenotype prevalence comparison between centers
+- **IDH Rates**: Intradialytic hypotension incidence by phenotype
+
+### Statistical Tables
+- **Phenotype Statistics**: N, IDH rate, mean SBP metrics per phenotype
+- **Ablation Results**: K-value selection and distance metric comparison
 
 ## Citation
 
-If you use this code, please cite:
+If you use this code in your research, please cite:
 
-> [Your paper citation here]
+```bibtex
+@article{hemoDynamics2026,
+  title={Unsupervised Discovery of Hemodynamic Phenotypes in Hemodialysis: A Dual-Center Study},
+  author={Your Name},
+  journal={Under Review},
+  year={2026}
+}
+```
 
 ## License
 
-[License type]
+MIT License. See [LICENSE](LICENSE) for details.
