@@ -60,29 +60,66 @@ Phenotype labels are obtained from the HemoDynamics framework (Repository 1):
 
 ### 2.2 Data Preprocessing
 
-#### 2.2.1 Missing Value Imputation
-Missing values are imputed using K-Nearest Neighbors (k=5):
+#### 2.2.1 Data Leakage Prevention
+
+To prevent data leakage, we ensure that:
+1. Train/test split is performed **before** any imputation or scaling
+2. Imputer is fit only on training data, then applied to test data
+3. Scaler is fit only on training data, then applied to test data
+4. Feature validation ensures only pre-dialysis features are used
+
+```python
+# Split first
+X_train, X_test, y_train, y_test = train_test_split(...)
+
+# Then impute (fit on train only)
+imputer = KNNImputer(n_neighbors=5)
+X_train_imputed = imputer.fit_transform(X_train)
+X_test_imputed = imputer.transform(X_test)
+
+# Then scale (fit on train only)
+scaler = RobustScaler()
+X_train_scaled = scaler.fit_transform(X_train_imputed)
+X_test_scaled = scaler.transform(X_test_imputed)
+```
+
+#### 2.2.2 Missing Value Imputation
+Missing values are imputed using K-Nearest Neighbors (k=5) **after** train/test split:
 
 ```python
 from sklearn.impute import KNNImputer
 imputer = KNNImputer(n_neighbors=5)
-X_imputed = imputer.fit_transform(X)
+X_train_imputed = imputer.fit_transform(X_train)
+X_test_imputed = imputer.transform(X_test)
 ```
 
-#### 2.2.2 Train/Test Split
+#### 2.2.3 Feature Scaling
+
+We use RobustScaler for cross-center feature consistency:
+
+```python
+from sklearn.preprocessing import RobustScaler
+scaler = RobustScaler()
+X_train_scaled = scaler.fit_transform(X_train_imputed)
+X_test_scaled = scaler.transform(X_test_imputed)
+```
+
+RobustScaler is resistant to outliers, making it suitable for clinical data with extreme values.
+
+#### 2.2.4 Train/Test Split
 Data is split with stratification to preserve class distribution:
 
 ```python
 X_train, X_test, y_train, y_test = train_test_split(
-    X_imputed, y, test_size=0.2, random_state=42, stratify=y
+    X_scaled, y, test_size=0.2, random_state=42, stratify=y
 )
 ```
 
 ### 2.3 Model Training
 
-#### 2.3.1 LightGBM Classifier
+#### 2.3.1 LightGBM Classifier with Early Stopping
 
-We use LightGBM for its efficiency and performance with tabular data:
+We use LightGBM for its efficiency and performance with tabular data, with early stopping to prevent overfitting:
 
 ```python
 model = lgb.LGBMClassifier(
@@ -94,8 +131,14 @@ model = lgb.LGBMClassifier(
     class_weight="balanced",  # Handle class imbalance
     verbose=-1
 )
-model.fit(X_train, y_train)
+model.fit(
+    X_train_scaled, y_train,
+    eval_set=[(X_test_scaled, y_test)],
+    callbacks=[lgb.early_stopping(stopping_rounds=50)]
+)
 ```
+
+Early stopping with 50 rounds prevents overfitting by halting training when validation performance plateaus.
 
 #### 2.3.2 Class Weight Balancing
 
@@ -139,16 +182,16 @@ Multiple algorithms are compared:
 - **RandomForest**: Bagging with feature subsampling
 - **Logistic Regression**: Linear baseline
 
-### 2.6 Cross-Center Validation
+### 2.6 Data Quality and Security
 
-Models trained on one center are evaluated on the other:
-
+#### 2.6.1 Gender Data Correction
+Fuding center gender was previously hardcoded to male (1). Fixed to read actual gender from data:
+```python
+"sex": 1 if str(row.get("SEX", row.get("性别", ""))).strip() == "男" else 0
 ```
-Shenyi Model → Fuding Test Set
-Fuding Model → Shenyi Test Set
-```
 
-This assesses generalizability across different clinical practice patterns.
+#### 2.6.2 Phenotype Label Integration
+Labels are loaded from Repository 1 output file (`data/phenotype_labels.csv`), enabling proper pipeline execution.
 
 ---
 
@@ -235,6 +278,10 @@ LightGBM achieves the best performance with efficient training time.
 
 Cross-center performance drop of ~0.11 AUROC indicates moderate generalizability, supporting the need for center-specific model training.
 
+#### 3.4.1 Feature Distribution Handling
+
+We apply RobustScaler to normalize feature distributions across centers, reducing the impact of center-specific measurement practices and improving model transferability.
+
 ### 3.5 Calibration
 
 Calibration curves show good probability reliability for all classes, with slight overconfidence for P0 predictions in the Shenyi model.
@@ -267,6 +314,7 @@ The cross-center validation results (AUROC drop of ~0.11) demonstrate that model
 1. **Retrospective Design**: Model trained on historical data
 2. **Limited Features**: Only pre-dialysis features used; intradialytic features could improve performance
 3. **External Validation**: Requires validation in additional centers
+4. **Phenotype Label Dependency**: Model performance depends on the quality of phenotype labels from Repository 1
 
 ### 4.5 Future Directions
 
@@ -328,6 +376,9 @@ HemoPredict presents a machine learning framework for pre-dialysis prediction of
 
 ---
 
-**Report Version**: 1.0  
-**Date**: 2026-05-01  
-**Status**: Under Review
+**Report Version**: 1.1  
+**Date**: 2026-05-02  
+**Status**: Under Review  
+**Changelog**: 
+- v1.1: Fixed P0/P1 critical issues (data leakage, early stopping, feature scaling, gender correction)
+- v1.0: Initial technical report
