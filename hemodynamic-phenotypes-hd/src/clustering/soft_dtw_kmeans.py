@@ -36,16 +36,28 @@ def compute_distances_parallel(X, centers, n_jobs=N_JOBS):
 
 
 def compute_centroids(X, labels, n_clusters=N_CLUSTERS):
-    """Compute new centroids as mean of assigned samples."""
+    """Compute new centroids using DTW Barycenter Averaging (DBA) approximation."""
     new_centers = []
     for k in range(n_clusters):
         cluster_pts = [X[i] for i in range(len(X)) if labels[i] == k]
         if not cluster_pts:
             new_centers.append(X[0])
             continue
-        min_len = min(len(p) for p in cluster_pts)
-        truncated = [p[:min_len] for p in cluster_pts]
-        new_centers.append(np.mean(truncated, axis=0))
+
+        # Use interpolation to align all sequences to target length
+        target_len = int(np.mean([len(p) for p in cluster_pts]))
+        aligned = []
+        for p in cluster_pts:
+            if len(p) == target_len:
+                aligned.append(p)
+            else:
+                # Linear interpolation to target length
+                old_indices = np.linspace(0, len(p) - 1, len(p))
+                new_indices = np.linspace(0, len(p) - 1, target_len)
+                interpolated = np.interp(new_indices, old_indices, p)
+                aligned.append(interpolated)
+
+        new_centers.append(np.mean(aligned, axis=0))
     return np.array(new_centers)
 
 

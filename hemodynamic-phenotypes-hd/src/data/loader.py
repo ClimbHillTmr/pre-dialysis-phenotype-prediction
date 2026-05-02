@@ -63,7 +63,7 @@ def convert_to_float_list(input_list):
     """Convert string or list to float list, handling NA values."""
     if isinstance(input_list, str):
         try:
-            parsed_list = eval(input_list)
+            parsed_list = ast.literal_eval(input_list)
             if isinstance(parsed_list, list):
                 return [
                     float(v)
@@ -282,5 +282,5 @@ def extract_idh_label(session, threshold_abs=90.0):
         [x for x in session["time_sbp"][1:] if not np.isnan(x)], default=np.nan
     )
     if np.isnan(min_sbp):
-        return "unknown"
+        return "Stable"  # Default to Stable if no intradialytic measurements
     return "IDH" if min_sbp < threshold_abs else "Stable"

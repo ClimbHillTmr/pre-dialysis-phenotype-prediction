@@ -199,6 +199,21 @@ def run_analysis(labeled_sessions, output_dir="results"):
     results_df.to_csv(os.path.join(table_dir, "phenotype_statistics.csv"), index=False)
     print(f"\n  Saved: {os.path.join(table_dir, 'phenotype_statistics.csv')}")
 
+    # Save phenotype labels for Repository 2
+    labels_df = pd.DataFrame(
+        [
+            {
+                "session_id": s["session_id"],
+                "center": s["center"],
+                "phenotype_id": s["phenotype_id"],
+                "idh_label": s["idh_label"],
+            }
+            for s in labeled_sessions
+        ]
+    )
+    labels_df.to_csv(os.path.join(table_dir, "phenotype_labels.csv"), index=False)
+    print(f"  Saved: {os.path.join(table_dir, 'phenotype_labels.csv')}")
+
     return {
         "chi2": chi2,
         "p_value": p_value,

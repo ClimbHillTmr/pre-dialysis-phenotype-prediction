@@ -193,3 +193,47 @@ def run_distance_ablation(X_sample):
     print(f"    Silhouette (DTW): {silhouette_dtw:.4f}")
 
     return results
+
+
+def run_bootstrap_stability(X_sample, n_clusters=N_CLUSTERS, n_bootstrap=10):
+    """Bootstrap stability analysis for clustering validation."""
+    print("\n" + "=" * 60)
+    print("Bootstrap Stability Analysis")
+    print("=" * 60)
+
+    n_samples = len(X_sample)
+    agreement_matrix = np.zeros((n_samples, n_samples))
+
+    for b in range(n_bootstrap):
+        print(f"  Bootstrap iteration {b+1}/{n_bootstrap}...")
+        np.random.seed(RANDOM_STATE + b)
+
+        # Sample with replacement
+        bootstrap_idx = np.random.choice(n_samples, n_samples, replace=True)
+        X_boot = X_sample[bootstrap_idx]
+
+        # Run clustering
+        labels_boot, _ = compute_dtw_kmeans_simple(
+            X_boot, n_clusters=n_clusters, max_iter=20
+        )
+
+        # Update agreement matrix
+        for i in range(n_samples):
+            for j in range(n_samples):
+                if (
+                    bootstrap_idx[i] in bootstrap_idx
+                    and bootstrap_idx[j] in bootstrap_idx
+                ):
+                    idx_i = np.where(bootstrap_idx == i)[0][0]
+                    idx_j = np.where(bootstrap_idx == j)[0][0]
+                    if labels_boot[idx_i] == labels_boot[idx_j]:
+                        agreement_matrix[i, j] += 1
+
+    # Compute stability score
+    agreement_matrix /= n_bootstrap
+    stability_score = np.mean(agreement_matrix)
+
+    print(f"\n  Bootstrap stability score: {stability_score:.4f}")
+    print(f"  (1.0 = perfectly stable, 0.0 = completely unstable)")
+
+    return stability_score, agreement_matrix
