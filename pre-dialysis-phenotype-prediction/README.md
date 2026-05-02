@@ -1,8 +1,31 @@
-# Pre-Dialysis Phenotype Prediction
+# HemoPredict
+
+**Pre-Dialysis Prediction of Hemodynamic Phenotypes Using Machine Learning**
+
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Overview
 
-This repository contains the prediction pipeline for identifying hemodynamic phenotypes in hemodialysis patients **before dialysis begins**. The system uses pre-dialysis clinical features to predict which trajectory phenotype a patient will follow during their dialysis session.
+HemoPredict predicts a patient's hemodynamic phenotype **before dialysis begins** using pre-dialysis clinical features. By training center-specific LightGBM models, the system enables proactive risk stratification and personalized treatment planning.
+
+**Key capabilities:**
+- **Pre-Dialysis Prediction**: Multi-class classification of hemodynamic phenotypes using pre-dialysis features
+- **Center-Specific Models**: Separate models trained for each dialysis center to account for practice variations
+- **Cross-Center Validation**: Assessment of model generalizability across centers
+- **Interpretable AI**: SHAP analysis for feature attribution and clinical insights
+
+## Quick Start
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the full pipeline
+python src/main.py
+```
+
+Results will be saved to `results/figures/` and `results/tables/`.
 
 ## Project Structure
 
@@ -11,54 +34,69 @@ pre-dialysis-phenotype-prediction/
 ├── config/
 │   └── settings.py          # Configuration parameters
 ├── src/
+│   ├── main.py              # Main pipeline entry point
 │   ├── data/
-│   │   └── loader.py        # Data loading and feature extraction
+│   │   └── loader.py        # Feature extraction
 │   ├── model/
 │   │   └── trainer.py       # Model training and evaluation
-│   ├── experiments/
-│   │   └── ablation.py      # Ablation studies
-│   └── main.py              # Main pipeline
+│   └── experiments/
+│       └── ablation.py      # Ablation studies
 ├── results/
 │   ├── figures/             # Generated visualizations
-│   └── tables/              # Statistical results
-├── requirements.txt         # Dependencies
+│   └── tables/              # Statistical results (CSV)
+├── requirements.txt
 └── README.md
 ```
 
-## Key Features
+## Methods
 
-- **Center-Specific Modeling**: Separate LightGBM models trained for each center (Shenyi, Fuding)
-- **Comprehensive Evaluation**: AUROC, AUPRC, calibration curves, decision curve analysis
-- **Ablation Studies**: Feature importance analysis and model comparison
-- **Cross-Center Validation**: Generalizability assessment across centers
-- **SHAP Interpretability**: Feature attribution analysis for clinical insights
+### Feature Engineering
 
-## Installation
+**Pre-dialysis features:**
+- **Demographics**: Age, sex
+- **Baseline Vitals**: Pre-dialysis SBP, DBP
+- **Treatment Parameters**: Prescribed UFR, dialysis duration
+- **Fluid Status**: IDWG (interdialytic weight gain), dry weight, pre-dialysis weight
 
-```bash
-pip install -r requirements.txt
-```
+### Model Training
 
-## Usage
+- **Algorithm**: LightGBM with class weight balancing
+- **Validation**: Train/test split with stratification (80/20)
+- **Missing Values**: KNN imputation (k=5)
+- **Hyperparameters**: n_estimators=200, learning_rate=0.05, max_depth=6
 
-```bash
-python src/main.py
-```
+### Evaluation Metrics
 
-## Dependencies
+- **AUROC**: One-vs-rest macro average for multi-class classification
+- **AUPRC**: Average precision for imbalanced classes
+- **Calibration**: Calibration curves for probability reliability
+- **Decision Curve**: Clinical utility assessment
 
-- Python 3.8+
-- lightgbm
-- scikit-learn
-- shap
-- matplotlib
-- numpy
-- pandas
+## Output
+
+### Visualizations
+- **Feature Importance**: Top predictive factors for phenotype assignment
+- **Calibration Curves**: Model probability calibration by class
+- **SHAP Summary**: Feature attribution analysis
+
+### Statistical Tables
+- **Performance Metrics**: AUROC, AUPRC, accuracy per center
+- **Ablation Results**: Feature importance and model comparison
+- **Cross-Center Validation**: Generalizability assessment
 
 ## Citation
 
-If you use this code in your research, please cite our paper (to be added).
+If you use this code in your research, please cite:
+
+```bibtex
+@article{hemoPredict2026,
+  title={Pre-Dialysis Prediction of Hemodynamic Phenotypes in Hemodialysis: A Machine Learning Approach},
+  author={Your Name},
+  journal={Under Review},
+  year={2026}
+}
+```
 
 ## License
 
-MIT License
+MIT License. See [LICENSE](LICENSE) for details.
